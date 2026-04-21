@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Connect 4</title>
+  <style>
+    :root {
+      --p1: #f97316;
+      --p2: #22c55e;
+      --board: #1e3a8a;
+      --hole: #0f172a;
+      --bg: #0f172a;
+      --text: #f1f5f9;
+      --subtext: #94a3b8;
+      --btn-bg: #1e293b;
+      --btn-hover: #334155;
+      --cell-size: clamp(52px, 10vw, 80px);
+      --gap: clamp(4px, 0.8vw, 8px);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      padding: 20px;
+    }
+
+    h1 {
+      font-size: clamp(1.4rem, 4vw, 2rem);
+      letter-spacing: 0.05em;
+      font-weight: 700;
+    }
+
+    #status {
+      font-size: clamp(0.9rem, 2.5vw, 1.1rem);
+      color: var(--subtext);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 1.6em;
+      transition: color 0.2s;
+    }
+
+    #status-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      transition: background 0.3s;
+    }
+
+    #board-wrap {
+      background: var(--board);
+      border-radius: 16px;
+      padding: var(--gap);
+      box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+    }
+
+    #board {
+      display: grid;
+      grid-template-columns: repeat(7, var(--cell-size));
+      grid-template-rows: repeat(6, var(--cell-size));
+      gap: var(--gap);
+    }
+
+    .cell {
+      width: var(--cell-size);
+      height: var(--cell-size);
+      background: var(--hole);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .cell.game-over { cursor: not-allowed; }
+
+    .piece {
+      width: 88%;
+      height: 88%;
+      border-radius: 50%;
+      background: transparent;
+      transition: background 0.15s;
+    }
+
+    .cell.p1 .piece { background: var(--p1); }
+    .cell.p2 .piece { background: var(--p2); }
+
+    .cell.preview-p1 .piece { background: var(--p1); opacity: 0.35; }
+    .cell.preview-p2 .piece { background: var(--p2); opacity: 0.35; }
+
+    .cell.winning .piece {
+      animation: pulse 0.7s ease-in-out infinite alternate;
+    }
+    .cell.p1.winning .piece { box-shadow: 0 0 16px 4px var(--p1); }
+    .cell.p2.winning .piece { box-shadow: 0 0 16px 4px var(--p2); }
+
+    @keyframes pulse {
+      from { transform: scale(0.92); }
+      to   { transform: scale(1.05); }
+    }
+
+    .cell.drop .piece {
+      animation: dropIn 0.32s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+    }
+
+    @keyframes dropIn {
+      from { transform: translateY(calc(-1 * var(--drop-dist))); }
+      to   { transform: translateY(0); }
+    }
+
+    #new-game {
+      padding: 10px 28px;
+      font-size: 1rem;
+      font-weight: 600;
+      border: none;
+      border-radius: 999px;
+      background: var(--btn-bg);
+      color: var(--text);
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+      letter-spacing: 0.03em;
+    }
+    #new-game:hover  { background: var(--btn-hover); }
+    #new-game:active { transform: scale(0.96); }
+
+    #legend {
+      display: flex;
+      gap: 24px;
+      font-size: 0.85rem;
+      color: var(--subtext);
+    }
+    .legend-item { display: flex; align-items: center; gap: 6px; }
+    .legend-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+    }
+  </style>
+</head>
+<body>
+
+<h1>Connect 4</h1>
+<div id="status"><span id="status-dot"></span><span id="status-text"></span></div>
+<div id="board-wrap"><div id="board"></div></div>
+<button id="new-game">New Game</button>
+<div id="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:var(--p1)"></div> Player 1</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--p2)"></div> Player 2</div>
+</div>
+
+<script>
+  const ROWS = 6, COLS = 7;
+
+  let board, currentPlayer, gameOver, winner, winningCells, isDraw, hoverCol, lastDrop;
+
+  function initGame() {
+    board = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+    currentPlayer = 1;
+    gameOver = false;
+    winner = null;
+    winningCells = null;
+    isDraw = false;
+    hoverCol = null;
+    lastDrop = null;
+  }
+
+  function dropPiece(col) {
+    for (let row = ROWS - 1; row >= 0; row--) {
+      if (board[row][col] === 0) {
+        board[row][col] = currentPlayer;
+        return row;
+      }
+    }
+    return -1;
+  }
+
+  function inBounds(r, c) {
+    return r >= 0 && r < ROWS && c >= 0 && c < COLS;
+  }
+
+  function checkWin(row, col, player) {
+    const dirs = [[0,1],[1,0],[1,1],[1,-1]];
+    for (const [dr, dc] of dirs) {
+      let streak = [];
+      for (let s = -3; s <= 3; s++) {
+        const r = row + dr * s, c = col + dc * s;
+        if (inBounds(r, c) && board[r][c] === player) {
+          streak.push([r, c]);
+          if (streak.length === 4) return streak;
+        } else {
+          streak = [];
+        }
+      }
+    }
+    return null;
+  }
+
+  function checkDraw() {
+    return board[0].every(cell => cell !== 0);
+  }
+
+  function lowestEmpty(col) {
+    for (let row = ROWS - 1; row >= 0; row--) {
+      if (board[row][col] === 0) return row;
+    }
+    return -1;
+  }
+
+  function handleColumnClick(col) {
+    if (gameOver) return;
+    const row = dropPiece(col);
+    if (row === -1) return;
+    lastDrop = [row, col];
+    const cells = checkWin(row, col, currentPlayer);
+    if (cells) {
+      gameOver = true;
+      winner = currentPlayer;
+      winningCells = cells;
+    } else if (checkDraw()) {
+      gameOver = true;
+      isDraw = true;
+    } else {
+      currentPlayer = currentPlayer === 1 ? 2 : 1;
+    }
+    render();
+  }
+
+  function render() {
+    const boardEl = document.getElementById('board');
+    const cellSize = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--cell-size'));
+
+    boardEl.innerHTML = '';
+
+    const winSet = new Set((winningCells || []).map(([r,c]) => `${r},${c}`));
+
+    for (let row = 0; row < ROWS; row++) {
+      for (let col = 0; col < COLS; col++) {
+        const cell = document.createElement('div');
+        cell.className = 'cell';
+        cell.dataset.col = col;
+
+        const val = board[row][col];
+        const isWinCell = winSet.has(`${row},${col}`);
+        const isLastDrop = lastDrop && lastDrop[0] === row && lastDrop[1] === col;
+
+        if (val === 1) cell.classList.add('p1');
+        if (val === 2) cell.classList.add('p2');
+        if (isWinCell) cell.classList.add('winning');
+        if (gameOver) cell.classList.add('game-over');
+
+        const emptyRow = lowestEmpty(col);
+        if (!gameOver && val === 0 && hoverCol === col && row === emptyRow) {
+          cell.classList.add(currentPlayer === 1 ? 'preview-p1' : 'preview-p2');
+        }
+
+        const piece = document.createElement('div');
+        piece.className = 'piece';
+
+        if (isLastDrop && val !== 0) {
+          cell.classList.add('drop');
+          const dropDist = (row + 1) * (cellSize + 6);
+          cell.style.setProperty('--drop-dist', dropDist + 'px');
+        }
+
+        cell.appendChild(piece);
+        if (!gameOver) cell.addEventListener('click', () => handleColumnClick(col));
+        boardEl.appendChild(cell);
+      }
+    }
+
+    // Status
+    const dot = document.getElementById('status-dot');
+    const text = document.getElementById('status-text');
+    if (winner) {
+      dot.style.background = winner === 1 ? 'var(--p1)' : 'var(--p2)';
+      text.textContent = `Player ${winner} wins!`;
+    } else if (isDraw) {
+      dot.style.background = 'var(--subtext)';
+      text.textContent = "It's a draw!";
+    } else {
+      dot.style.background = currentPlayer === 1 ? 'var(--p1)' : 'var(--p2)';
+      text.textContent = `Player ${currentPlayer}'s turn`;
+    }
+  }
+
+  // Hover tracking via event delegation
+  const boardWrap = document.getElementById('board-wrap');
+  boardWrap.addEventListener('mouseover', e => {
+    const cell = e.target.closest('.cell');
+    if (!cell) return;
+    const col = parseInt(cell.dataset.col);
+    if (col !== hoverCol) { hoverCol = col; render(); }
+  });
+  boardWrap.addEventListener('mouseleave', () => {
+    if (hoverCol !== null) { hoverCol = null; render(); }
+  });
+
+  document.getElementById('new-game').addEventListener('click', () => {
+    initGame();
+    render();
+  });
+
+  initGame();
+  render();
+</script>
+</body>
+</html>
