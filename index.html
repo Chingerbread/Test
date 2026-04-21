@@ -63,6 +63,8 @@
       border-radius: 16px;
       padding: var(--gap);
       box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+      position: relative;
+      overflow: hidden;
     }
 
     #board {
@@ -81,8 +83,6 @@
       align-items: center;
       justify-content: center;
       cursor: pointer;
-      position: relative;
-      overflow: hidden;
     }
 
     .cell.game-over { cursor: not-allowed; }
@@ -112,13 +112,11 @@
       to   { transform: scale(1.05); }
     }
 
-    .cell.drop .piece {
-      animation: dropIn 0.32s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
-    }
-
-    @keyframes dropIn {
-      from { transform: translateY(calc(-1 * var(--drop-dist))); }
-      to   { transform: translateY(0); }
+    .falling-piece {
+      position: absolute;
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 10;
     }
 
     #new-game {
@@ -163,7 +161,7 @@
 <script>
   const ROWS = 6, COLS = 7;
 
-  let board, currentPlayer, gameOver, winner, winningCells, isDraw, hoverCol, lastDrop;
+  let board, currentPlayer, gameOver, winner, winningCells, isDraw, hoverCol, animating;
 
   function initGame() {
     board = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
@@ -173,17 +171,48 @@
     winningCells = null;
     isDraw = false;
     hoverCol = null;
-    lastDrop = null;
+    animating = false;
   }
 
-  function dropPiece(col) {
+  function findRow(col) {
     for (let row = ROWS - 1; row >= 0; row--) {
-      if (board[row][col] === 0) {
-        board[row][col] = currentPlayer;
-        return row;
-      }
+      if (board[row][col] === 0) return row;
     }
     return -1;
+  }
+
+  function animateDrop(col, targetRow, player, onComplete) {
+    const boardEl = document.getElementById('board');
+    const wrap = document.getElementById('board-wrap');
+    const allCells = boardEl.querySelectorAll('.cell');
+    const topCell = allCells[col];
+    const targetCell = allCells[targetRow * COLS + col];
+
+    const wrapRect = wrap.getBoundingClientRect();
+    const topRect = topCell.getBoundingClientRect();
+    const targetRect = targetCell.getBoundingClientRect();
+
+    const size = targetRect.width;
+    const startX = topRect.left - wrapRect.left;
+    const startY = topRect.top - wrapRect.top;
+    const dist = targetRect.top - topRect.top;
+    const bounce = size * 0.07;
+    const duration = 150 + targetRow * 55;
+
+    const fp = document.createElement('div');
+    fp.className = 'falling-piece';
+    fp.style.cssText = `width:${size}px;height:${size}px;left:${startX}px;top:${startY}px;background:${player === 1 ? 'var(--p1)' : 'var(--p2)'};`;
+    wrap.appendChild(fp);
+
+    fp.animate([
+      { transform: 'translateY(0)',              offset: 0,    easing: 'ease-in' },
+      { transform: `translateY(${dist}px)`,      offset: 0.72, easing: 'ease-out' },
+      { transform: `translateY(${dist - bounce}px)`, offset: 0.86, easing: 'ease-in' },
+      { transform: `translateY(${dist}px)`,      offset: 1 }
+    ], { duration, fill: 'forwards' }).onfinish = () => {
+      fp.remove();
+      onComplete();
+    };
   }
 
   function inBounds(r, c) {
@@ -219,28 +248,34 @@
   }
 
   function handleColumnClick(col) {
-    if (gameOver) return;
-    const row = dropPiece(col);
-    if (row === -1) return;
-    lastDrop = [row, col];
-    const cells = checkWin(row, col, currentPlayer);
-    if (cells) {
-      gameOver = true;
-      winner = currentPlayer;
-      winningCells = cells;
-    } else if (checkDraw()) {
-      gameOver = true;
-      isDraw = true;
-    } else {
-      currentPlayer = currentPlayer === 1 ? 2 : 1;
-    }
+    if (gameOver || animating) return;
+    const targetRow = findRow(col);
+    if (targetRow === -1) return;
+
+    animating = true;
+    hoverCol = null;
     render();
+
+    animateDrop(col, targetRow, currentPlayer, () => {
+      board[targetRow][col] = currentPlayer;
+      const cells = checkWin(targetRow, col, currentPlayer);
+      if (cells) {
+        gameOver = true;
+        winner = currentPlayer;
+        winningCells = cells;
+      } else if (checkDraw()) {
+        gameOver = true;
+        isDraw = true;
+      } else {
+        currentPlayer = currentPlayer === 1 ? 2 : 1;
+      }
+      animating = false;
+      render();
+    });
   }
 
   function render() {
     const boardEl = document.getElementById('board');
-    const cellSize = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--cell-size'));
-
     boardEl.innerHTML = '';
 
     const winSet = new Set((winningCells || []).map(([r,c]) => `${r},${c}`));
@@ -252,30 +287,21 @@
         cell.dataset.col = col;
 
         const val = board[row][col];
-        const isWinCell = winSet.has(`${row},${col}`);
-        const isLastDrop = lastDrop && lastDrop[0] === row && lastDrop[1] === col;
 
         if (val === 1) cell.classList.add('p1');
         if (val === 2) cell.classList.add('p2');
-        if (isWinCell) cell.classList.add('winning');
+        if (winSet.has(`${row},${col}`)) cell.classList.add('winning');
         if (gameOver) cell.classList.add('game-over');
 
         const emptyRow = lowestEmpty(col);
-        if (!gameOver && val === 0 && hoverCol === col && row === emptyRow) {
+        if (!gameOver && !animating && val === 0 && hoverCol === col && row === emptyRow) {
           cell.classList.add(currentPlayer === 1 ? 'preview-p1' : 'preview-p2');
         }
 
         const piece = document.createElement('div');
         piece.className = 'piece';
-
-        if (isLastDrop && val !== 0) {
-          cell.classList.add('drop');
-          const dropDist = (row + 1) * (cellSize + 6);
-          cell.style.setProperty('--drop-dist', dropDist + 'px');
-        }
-
         cell.appendChild(piece);
-        if (!gameOver) cell.addEventListener('click', () => handleColumnClick(col));
+        if (!gameOver && !animating) cell.addEventListener('click', () => handleColumnClick(col));
         boardEl.appendChild(cell);
       }
     }
@@ -298,6 +324,7 @@
   // Hover tracking via event delegation
   const boardWrap = document.getElementById('board-wrap');
   boardWrap.addEventListener('mouseover', e => {
+    if (animating || gameOver) return;
     const cell = e.target.closest('.cell');
     if (!cell) return;
     const col = parseInt(cell.dataset.col);
