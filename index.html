@@ -193,26 +193,42 @@
     const targetRect = targetCell.getBoundingClientRect();
 
     const size = targetRect.width;
-    const startX = topRect.left - wrapRect.left;
-    const startY = topRect.top - wrapRect.top;
+    const x = topRect.left - wrapRect.left;
+    const y0 = topRect.top - wrapRect.top;
     const dist = targetRect.top - topRect.top;
-    const bounce = size * 0.07;
-    const duration = 150 + targetRow * 55;
+    const color = player === 1 ? '#f97316' : '#22c55e';
+    const duration = Math.max(160, 100 + targetRow * 70);
 
     const fp = document.createElement('div');
     fp.className = 'falling-piece';
-    fp.style.cssText = `width:${size}px;height:${size}px;left:${startX}px;top:${startY}px;background:${player === 1 ? 'var(--p1)' : 'var(--p2)'};`;
+    fp.style.cssText = `width:${size}px;height:${size}px;left:${x}px;top:${y0}px;background:${color};`;
     wrap.appendChild(fp);
 
-    fp.animate([
-      { transform: 'translateY(0)',                   offset: 0,    easing: 'ease-in' },
-      { transform: `translateY(${dist}px)`,           offset: 0.72, easing: 'ease-out' },
-      { transform: `translateY(${dist - bounce}px)`,  offset: 0.86, easing: 'ease-in' },
-      { transform: `translateY(${dist}px)`,           offset: 1 }
-    ], { duration, fill: 'forwards' }).onfinish = () => {
-      fp.remove();
-      onComplete();
-    };
+    if (dist <= 0) {
+      requestAnimationFrame(() => { fp.remove(); onComplete(); });
+      return;
+    }
+
+    const t0 = performance.now();
+    function step(now) {
+      const t = Math.min((now - t0) / duration, 1);
+      let y;
+      if (t < 0.78) {
+        const p = t / 0.78;
+        y = dist * p * p;
+      } else {
+        const p = (t - 0.78) / 0.22;
+        y = dist + dist * 0.06 * Math.sin(p * Math.PI);
+      }
+      fp.style.transform = `translateY(${y}px)`;
+      if (t < 1) {
+        requestAnimationFrame(step);
+      } else {
+        fp.remove();
+        onComplete();
+      }
+    }
+    requestAnimationFrame(step);
   }
 
   function inBounds(r, c) {
@@ -256,7 +272,7 @@
     hoverCol = null;
     render();
 
-    animateDrop(col, targetRow, currentPlayer, () => {
+    requestAnimationFrame(() => animateDrop(col, targetRow, currentPlayer, () => {
       board[targetRow][col] = currentPlayer;
       const cells = checkWin(targetRow, col, currentPlayer);
       if (cells) {
@@ -271,7 +287,7 @@
       }
       animating = false;
       render();
-    });
+    }));
   }
 
   function render() {
