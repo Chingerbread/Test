@@ -113,10 +113,11 @@
     }
 
     .falling-piece {
-      position: absolute;
+      position: fixed;
       border-radius: 50%;
       pointer-events: none;
-      z-index: 10;
+      z-index: 9999;
+      will-change: transform;
     }
 
     #new-game {
@@ -185,40 +186,34 @@
     const boardEl = document.getElementById('board');
     const wrap = document.getElementById('board-wrap');
     const allCells = boardEl.querySelectorAll('.cell');
-    const topCell = allCells[col];
     const targetCell = allCells[targetRow * COLS + col];
 
     const wrapRect = wrap.getBoundingClientRect();
-    const topRect = topCell.getBoundingClientRect();
     const targetRect = targetCell.getBoundingClientRect();
 
     const size = targetRect.width;
-    const x = topRect.left - wrapRect.left;
-    const y0 = topRect.top - wrapRect.top;
-    const dist = targetRect.top - topRect.top;
+    // Start above the board frame, in viewport coords (position:fixed)
+    const startX = targetRect.left;
+    const startY = wrapRect.top - size * 1.5;
+    const dist = targetRect.top - startY;
     const color = player === 1 ? '#f97316' : '#22c55e';
-    const duration = Math.max(160, 100 + targetRow * 70);
+    const duration = 550 + targetRow * 90; // 550ms-1000ms
 
     const fp = document.createElement('div');
     fp.className = 'falling-piece';
-    fp.style.cssText = `width:${size}px;height:${size}px;left:${x}px;top:${y0}px;background:${color};`;
-    wrap.appendChild(fp);
-
-    if (dist <= 0) {
-      requestAnimationFrame(() => { fp.remove(); onComplete(); });
-      return;
-    }
+    fp.style.cssText = `width:${size}px;height:${size}px;left:${startX}px;top:${startY}px;background:${color};`;
+    document.body.appendChild(fp);
 
     const t0 = performance.now();
     function step(now) {
       const t = Math.min((now - t0) / duration, 1);
       let y;
-      if (t < 0.78) {
-        const p = t / 0.78;
-        y = dist * p * p;
+      if (t < 0.82) {
+        const p = t / 0.82;
+        y = dist * p * p * p;                           // cubic ease-in (gravity)
       } else {
-        const p = (t - 0.78) / 0.22;
-        y = dist + dist * 0.06 * Math.sin(p * Math.PI);
+        const p = (t - 0.82) / 0.18;
+        y = dist + dist * 0.10 * Math.sin(p * Math.PI); // bounce
       }
       fp.style.transform = `translateY(${y}px)`;
       if (t < 1) {
