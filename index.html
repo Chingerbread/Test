@@ -3,354 +3,667 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Connect 4</title>
+  <title>Letter Links</title>
   <style>
     :root {
-      --p1: #f97316;
-      --p2: #22c55e;
-      --board: #1e3a8a;
-      --hole: #0f172a;
-      --bg: #0f172a;
-      --text: #f1f5f9;
-      --subtext: #94a3b8;
-      --btn-bg: #1e293b;
-      --btn-hover: #334155;
-      --cell-size: clamp(52px, 10vw, 80px);
-      --gap: clamp(4px, 0.8vw, 8px);
+      --bg: #d0d5dd;
+      --board-bg: #2d2d2d;
+      --tile-normal: #f5eecc;
+      --tile-normal-border: #ddd5a0;
+      --tile-tl: #3ebcbc;
+      --tile-tl-border: #2da0a0;
+      --tile-dl: #7ec8e3;
+      --tile-dl-border: #55b0cc;
+      --tile-empty: #f0f0f0;
+      --tile-empty-border: #ddd;
+      --badge-orange: #f97316;
+      --badge-purple: #8b5cf6;
+      --score-green: #22c55e;
+      --rack-selected: #5b5bd6;
+      --rack-wild: #5b5bd6;
+      --panel-bg: #f8f9fb;
     }
-
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
       background: var(--bg);
-      color: var(--text);
-      font-family: system-ui, sans-serif;
+      font-family: system-ui, -apple-system, sans-serif;
       min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .game-wrap {
+      background: white;
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 6px 32px rgba(0,0,0,0.18);
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      width: fit-content;
+    }
+
+    /* ── Header ─────────────────────────────────── */
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .score-pill {
+      background: var(--score-green);
+      color: white;
+      font-weight: 800;
+      font-size: 1.05rem;
+      padding: 6px 22px;
+      border-radius: 999px;
+      letter-spacing: 0.02em;
+    }
+
+    /* ── Game area ──────────────────────────────── */
+    .game-area {
+      display: flex;
+      gap: 20px;
+      align-items: flex-start;
+    }
+
+    /* ── Board ──────────────────────────────────── */
+    .board {
+      display: grid;
+      grid-template-columns: repeat(5, 82px);
+      grid-template-rows: repeat(5, 82px);
+      gap: 6px;
+      background: var(--board-bg);
+      padding: 8px;
+      border-radius: 14px;
+    }
+
+    .board-cell {
+      width: 82px;
+      height: 82px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      cursor: default;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+      user-select: none;
+    }
+
+    /* Hover pop — only on cells with letters or placeable cells */
+    .board-cell.hoverable:hover {
+      transform: translateY(-5px) scale(1.07);
+      box-shadow: 0 10px 24px rgba(0,0,0,0.28);
+      z-index: 20;
+    }
+
+    .board-cell.type-normal  { background: var(--tile-normal); border: 2px solid var(--tile-normal-border); }
+    .board-cell.type-TL      { background: var(--tile-tl);     border: 2px solid var(--tile-tl-border); }
+    .board-cell.type-DL      { background: var(--tile-dl);     border: 2px solid var(--tile-dl-border); }
+    .board-cell.type-empty   { background: var(--tile-empty);  border: 2px solid var(--tile-empty-border); cursor: not-allowed; }
+
+    .board-cell.placeable {
+      cursor: pointer;
+      outline: 3px dashed #a78bfa;
+      outline-offset: -3px;
+    }
+
+    /* Letter */
+    .cell-letter {
+      font-size: 2.1rem;
+      font-weight: 800;
+      color: #1a1a1a;
+      line-height: 1;
+    }
+
+    /* Letter point value, bottom-right */
+    .cell-point {
+      position: absolute;
+      bottom: 4px;
+      right: 7px;
+      font-size: 0.62rem;
+      font-weight: 700;
+      color: #555;
+      line-height: 1;
+    }
+
+    /* Tile type label (TL / DL when empty) */
+    .cell-type-label {
+      font-size: 1rem;
+      font-weight: 800;
+      color: white;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.3);
+      letter-spacing: 0.04em;
+    }
+
+    /* Multiplier badge — top-left, appears when letter is placed */
+    .mult-badge {
+      position: absolute;
+      top: -7px;
+      left: -7px;
+      font-size: 0.58rem;
+      font-weight: 800;
+      padding: 2px 6px;
+      border-radius: 999px;
+      white-space: nowrap;
+      line-height: 1.4;
+      z-index: 5;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+    }
+    .mult-badge.orange { background: #f97316; color: white; }
+    .mult-badge.purple { background: #8b5cf6; color: white; }
+
+    /* Word-score circle — top-right of last cell in word */
+    .word-score-badge {
+      position: absolute;
+      top: -10px;
+      right: -10px;
+      min-width: 26px;
+      height: 26px;
+      padding: 0 5px;
+      background: var(--score-green);
+      color: white;
+      font-size: 0.62rem;
+      font-weight: 800;
+      border-radius: 999px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 6;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+    }
+
+    /* ── Right panel ────────────────────────────── */
+    .right-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      width: 260px;
+    }
+
+    .rack {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .rack-tile {
+      width: 64px;
+      height: 64px;
+      background: white;
+      border: 2px solid #d0d5dd;
+      border-radius: 10px;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 20px;
-      padding: 20px;
-    }
-
-    h1 {
-      font-size: clamp(1.4rem, 4vw, 2rem);
-      letter-spacing: 0.05em;
-      font-weight: 700;
-    }
-
-    #status {
-      font-size: clamp(0.9rem, 2.5vw, 1.1rem);
-      color: var(--subtext);
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      min-height: 1.6em;
-      transition: color 0.2s;
-    }
-
-    #status-dot {
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-      flex-shrink: 0;
-      transition: background 0.3s;
-    }
-
-    #board-wrap {
-      background: var(--board);
-      border-radius: 16px;
-      padding: var(--gap);
-      box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+      cursor: pointer;
       position: relative;
-      overflow: hidden;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+      user-select: none;
     }
 
-    #board {
-      display: grid;
-      grid-template-columns: repeat(7, var(--cell-size));
-      grid-template-rows: repeat(6, var(--cell-size));
-      gap: var(--gap);
+    .rack-tile:hover {
+      transform: translateY(-5px) scale(1.08);
+      box-shadow: 0 10px 22px rgba(0,0,0,0.2);
+      z-index: 10;
     }
 
-    .cell {
-      width: var(--cell-size);
-      height: var(--cell-size);
-      background: var(--hole);
+    .rack-tile.selected {
+      background: var(--rack-selected);
+      border-color: #4f46e5;
+    }
+    .rack-tile.selected .tile-letter,
+    .rack-tile.selected .tile-point { color: white; }
+
+    .rack-tile.wildcard,
+    .rack-tile.wildcard.selected {
+      background: var(--rack-wild);
+      border-color: #4338ca;
+    }
+    .rack-tile.wildcard .tile-letter,
+    .rack-tile.wildcard .tile-point { color: white; }
+
+    .tile-letter {
+      font-size: 1.55rem;
+      font-weight: 800;
+      color: #1a1a1a;
+      line-height: 1;
+    }
+
+    .tile-point {
+      position: absolute;
+      bottom: 4px;
+      right: 6px;
+      font-size: 0.62rem;
+      font-weight: 700;
+      color: #666;
+      line-height: 1;
+    }
+
+    /* Word list area */
+    .word-list-panel {
+      background: var(--panel-bg);
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 12px 14px;
+      min-height: 140px;
+      flex: 1;
+    }
+
+    .word-list-panel p {
+      font-size: 0.8rem;
+      color: #94a3b8;
+      font-style: italic;
+    }
+
+    .word-entry {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 4px 0;
+      border-bottom: 1px solid #e8ecf1;
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: #334155;
+    }
+
+    .word-entry:last-child { border-bottom: none; }
+
+    .word-entry .ws { color: var(--score-green); font-weight: 700; }
+
+    /* Controls */
+    .controls {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      justify-content: flex-end;
+    }
+
+    .btn-icon {
+      width: 44px;
+      height: 44px;
+      border: 2px solid #e2e8f0;
       border-radius: 50%;
+      background: white;
+      cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
-      cursor: pointer;
+      font-size: 1.1rem;
+      transition: background 0.1s, transform 0.1s;
+      flex-shrink: 0;
     }
+    .btn-icon:hover { background: #f1f5f9; }
+    .btn-icon:active { transform: scale(0.93); }
 
-    .cell.game-over { cursor: not-allowed; }
-
-    .piece {
-      width: 88%;
-      height: 88%;
-      border-radius: 50%;
-      background: transparent;
-      transition: background 0.15s;
-    }
-
-    .cell.p1 .piece { background: var(--p1); }
-    .cell.p2 .piece { background: var(--p2); }
-
-    .cell.preview-p1 .piece { background: var(--p1); opacity: 0.35; }
-    .cell.preview-p2 .piece { background: var(--p2); opacity: 0.35; }
-
-    .cell.winning .piece {
-      animation: pulse 0.7s ease-in-out infinite alternate;
-    }
-    .cell.p1.winning .piece { box-shadow: 0 0 16px 4px var(--p1); }
-    .cell.p2.winning .piece { box-shadow: 0 0 16px 4px var(--p2); }
-
-    @keyframes pulse {
-      from { transform: scale(0.92); }
-      to   { transform: scale(1.05); }
-    }
-
-    .falling-piece {
-      position: fixed;
-      border-radius: 50%;
-      pointer-events: none;
-      z-index: 9999;
-      will-change: transform;
-    }
-
-    #new-game {
-      padding: 10px 28px;
-      font-size: 1rem;
-      font-weight: 600;
+    .btn-submit {
+      padding: 11px 22px;
+      background: #f97316;
+      color: white;
+      font-weight: 700;
+      font-size: 0.95rem;
       border: none;
       border-radius: 999px;
-      background: var(--btn-bg);
-      color: var(--text);
       cursor: pointer;
-      transition: background 0.15s, transform 0.1s;
-      letter-spacing: 0.03em;
+      transition: opacity 0.15s, transform 0.1s;
+      letter-spacing: 0.02em;
     }
-    #new-game:hover  { background: var(--btn-hover); }
-    #new-game:active { transform: scale(0.96); }
+    .btn-submit:hover { opacity: 0.88; }
+    .btn-submit:active { transform: scale(0.96); }
 
-    #legend {
-      display: flex;
-      gap: 24px;
-      font-size: 0.85rem;
-      color: var(--subtext);
-    }
-    .legend-item { display: flex; align-items: center; gap: 6px; }
-    .legend-dot {
-      width: 10px; height: 10px;
+    .btn-shuffle {
+      width: 44px;
+      height: 44px;
+      border: 2px solid #e2e8f0;
       border-radius: 50%;
+      background: white;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.05rem;
+      transition: background 0.1s, transform 0.1s;
+      flex-shrink: 0;
     }
+    .btn-shuffle:hover { background: #f1f5f9; }
+    .btn-shuffle:active { transform: scale(0.93); }
   </style>
 </head>
 <body>
+<div class="game-wrap">
 
-<h1>Connect 4</h1>
-<div id="status"><span id="status-dot"></span><span id="status-text"></span></div>
-<div id="board-wrap"><div id="board"></div></div>
-<button id="new-game">New Game</button>
-<div id="legend">
-  <div class="legend-item"><div class="legend-dot" style="background:var(--p1)"></div> Player 1</div>
-  <div class="legend-item"><div class="legend-dot" style="background:var(--p2)"></div> Player 2</div>
+  <div class="header">
+    <div class="score-pill">Score <span id="total-score">0</span></div>
+  </div>
+
+  <div class="game-area">
+    <div id="board" class="board"></div>
+
+    <div class="right-panel">
+      <div id="rack" class="rack"></div>
+      <div id="word-list" class="word-list-panel"><p>Placed words will appear here…</p></div>
+      <div class="controls">
+        <button class="btn-icon" id="btn-trash" title="Clear placed letters">🗑</button>
+        <button class="btn-shuffle" id="btn-shuffle" title="Shuffle rack">⇄</button>
+        <button class="btn-submit" id="btn-submit">Submit Words ▶</button>
+      </div>
+    </div>
+  </div>
+
 </div>
-
 <script>
-  const ROWS = 6, COLS = 7;
+  /* ── Letter point values ─────────────────────── */
+  const PTS = {
+    A:1,B:3,C:3,D:2,E:1,F:4,G:2,H:4,I:1,J:8,K:5,L:1,
+    M:3,N:1,O:1,P:3,Q:10,R:1,S:1,T:1,U:1,V:4,W:4,
+    X:8,Y:4,Z:10,'*':0
+  };
 
-  let board, currentPlayer, gameOver, winner, winningCells, isDraw, hoverCol, animating;
+  /* ── Board layout ─────────────────────────────
+     type:  'normal' | 'TL' | 'DL' | 'empty'
+     mult:  tile score multiplier (applied to each letter's point value)
+     TL/DL special tiles count as mult × 3 or mult × 2 for label, but
+     the numeric mult already includes the letter-multiplier effect here.
+  ──────────────────────────────────────────────── */
+  const LAYOUT = [
+    // row 0 – all 12×
+    [
+      {type:'normal',mult:12},{type:'normal',mult:12},{type:'normal',mult:12},
+      {type:'normal',mult:12},{type:'normal',mult:12}
+    ],
+    // row 1
+    [
+      {type:'TL',mult:3},{type:'TL',mult:3},{type:'normal',mult:6},
+      {type:'DL',mult:2},{type:'normal',mult:4}
+    ],
+    // row 2
+    [
+      {type:'empty',mult:0},{type:'normal',mult:6},{type:'normal',mult:6},
+      {type:'empty',mult:0},{type:'normal',mult:4}
+    ],
+    // row 3 – all 54×
+    [
+      {type:'normal',mult:54},{type:'normal',mult:54},{type:'normal',mult:54},
+      {type:'normal',mult:54},{type:'normal',mult:54}
+    ],
+    // row 4
+    [
+      {type:'empty',mult:0},{type:'normal',mult:6},{type:'DL',mult:2},
+      {type:'TL',mult:3},{type:'empty',mult:0}
+    ],
+  ];
 
-  function initGame() {
-    board = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
-    currentPlayer = 1;
-    gameOver = false;
-    winner = null;
-    winningCells = null;
-    isDraw = false;
-    hoverCol = null;
-    animating = false;
+  /* Pre-placed letters that cannot be removed */
+  const PREPLACED = [
+    [0,0,'S'],[0,1,'E'],[0,2,'W'],[0,3,'E'],[0,4,'N'],
+    [1,2,'O'],          [1,4,'O'],
+    [2,1,'B'],[2,2,'O'],
+    [3,0,'H'],[3,1,'O'],[3,2,'T'],[3,3,'C'],[3,4,'H'],
+    [4,1,'T'],
+  ];
+
+  /* Initial letter rack */
+  const RACK_INIT = [
+    {letter:'E',wild:false},
+    {letter:'*',wild:true},
+    {letter:'R',wild:false},
+    {letter:'V',wild:false},
+    {letter:'*',wild:true},
+  ];
+
+  /* ── Game state ───────────────────────────────── */
+  // board[r][c] = { type, mult, letter|null, fixed }
+  let board = LAYOUT.map((row, r) =>
+    row.map((cell, c) => ({ ...cell, letter: null, fixed: false }))
+  );
+  PREPLACED.forEach(([r,c,l]) => { board[r][c].letter = l; board[r][c].fixed = true; });
+
+  let rack = RACK_INIT.map((t, i) => ({ ...t, id: i, placed: false }));
+  let selectedId = null; // id of selected rack tile
+
+  /* ── Scoring helpers ─────────────────────────── */
+  function letterScore(cell) {
+    if (!cell.letter || cell.mult === 0) return 0;
+    return (PTS[cell.letter] ?? 0) * cell.mult;
   }
 
-  function findRow(col) {
-    for (let row = ROWS - 1; row >= 0; row--) {
-      if (board[row][col] === 0) return row;
-    }
-    return -1;
+  function wordScore(cells) {
+    return cells.reduce((s, c) => s + letterScore(c), 0);
   }
 
-  function animateDrop(col, targetRow, player, onComplete) {
-    const boardEl = document.getElementById('board');
-    const wrap = document.getElementById('board-wrap');
-    const allCells = boardEl.querySelectorAll('.cell');
-    const targetCell = allCells[targetRow * COLS + col];
-
-    const wrapRect = wrap.getBoundingClientRect();
-    const targetRect = targetCell.getBoundingClientRect();
-
-    const size = targetRect.width;
-    // Start above the board frame, in viewport coords (position:fixed)
-    const startX = targetRect.left;
-    const startY = wrapRect.top - size * 1.5;
-    const dist = targetRect.top - startY;
-    const color = player === 1 ? '#f97316' : '#22c55e';
-    const duration = 550 + targetRow * 90; // 550ms–1000ms
-
-    const fp = document.createElement('div');
-    fp.className = 'falling-piece';
-    fp.style.cssText = `width:${size}px;height:${size}px;left:${startX}px;top:${startY}px;background:${color};`;
-    document.body.appendChild(fp);
-
-    const t0 = performance.now();
-    function step(now) {
-      const t = Math.min((now - t0) / duration, 1);
-      let y;
-      if (t < 0.82) {
-        const p = t / 0.82;
-        y = dist * p * p * p;                           // cubic ease-in (gravity)
-      } else {
-        const p = (t - 0.82) / 0.18;
-        y = dist + dist * 0.10 * Math.sin(p * Math.PI); // bounce
-      }
-      fp.style.transform = `translateY(${y}px)`;
-      if (t < 1) {
-        requestAnimationFrame(step);
-      } else {
-        fp.remove();
-        onComplete();
-      }
-    }
-    requestAnimationFrame(step);
-  }
-
-  function inBounds(r, c) {
-    return r >= 0 && r < ROWS && c >= 0 && c < COLS;
-  }
-
-  function checkWin(row, col, player) {
-    const dirs = [[0,1],[1,0],[1,1],[1,-1]];
-    for (const [dr, dc] of dirs) {
-      let streak = [];
-      for (let s = -3; s <= 3; s++) {
-        const r = row + dr * s, c = col + dc * s;
-        if (inBounds(r, c) && board[r][c] === player) {
-          streak.push([r, c]);
-          if (streak.length === 4) return streak;
+  /* Find all horizontal & vertical words (≥2 letters) */
+  function findWords() {
+    const words = [];
+    // Horizontal
+    for (let r = 0; r < 5; r++) {
+      let run = [];
+      for (let c = 0; c <= 5; c++) {
+        const cell = c < 5 ? board[r][c] : null;
+        if (cell && cell.letter) {
+          run.push({ ...cell, r, c });
         } else {
-          streak = [];
+          if (run.length >= 2) words.push({ cells: run, dir: 'H' });
+          run = [];
         }
       }
     }
-    return null;
-  }
-
-  function checkDraw() {
-    return board[0].every(cell => cell !== 0);
-  }
-
-  function lowestEmpty(col) {
-    for (let row = ROWS - 1; row >= 0; row--) {
-      if (board[row][col] === 0) return row;
-    }
-    return -1;
-  }
-
-  function handleColumnClick(col) {
-    if (gameOver || animating) return;
-    const targetRow = findRow(col);
-    if (targetRow === -1) return;
-
-    animating = true;
-    hoverCol = null;
-    render();
-
-    requestAnimationFrame(() => animateDrop(col, targetRow, currentPlayer, () => {
-      board[targetRow][col] = currentPlayer;
-      const cells = checkWin(targetRow, col, currentPlayer);
-      if (cells) {
-        gameOver = true;
-        winner = currentPlayer;
-        winningCells = cells;
-      } else if (checkDraw()) {
-        gameOver = true;
-        isDraw = true;
-      } else {
-        currentPlayer = currentPlayer === 1 ? 2 : 1;
+    // Vertical
+    for (let c = 0; c < 5; c++) {
+      let run = [];
+      for (let r = 0; r <= 5; r++) {
+        const cell = r < 5 ? board[r][c] : null;
+        if (cell && cell.letter) {
+          run.push({ ...cell, r, c });
+        } else {
+          if (run.length >= 2) words.push({ cells: run, dir: 'V' });
+          run = [];
+        }
       }
-      animating = false;
-      render();
-    }));
+    }
+    return words;
   }
 
+  function totalScore() {
+    return findWords().reduce((s, w) => s + wordScore(w.cells), 0);
+  }
+
+  /* Map of "r,c" -> score circle value for the LAST cell of each word */
+  function scoreCircleMap() {
+    const map = {};
+    findWords().forEach(w => {
+      const last = w.cells[w.cells.length - 1];
+      const key = `${last.r},${last.c}`;
+      // Sum if two words end on same cell
+      map[key] = (map[key] || 0) + wordScore(w.cells);
+    });
+    return map;
+  }
+
+  /* ── Render ───────────────────────────────────── */
   function render() {
+    renderBoard();
+    renderRack();
+    renderWordList();
+    document.getElementById('total-score').textContent = totalScore().toLocaleString();
+  }
+
+  function renderBoard() {
     const boardEl = document.getElementById('board');
     boardEl.innerHTML = '';
+    const circles = scoreCircleMap();
 
-    const winSet = new Set((winningCells || []).map(([r,c]) => `${r},${c}`));
+    for (let r = 0; r < 5; r++) {
+      for (let c = 0; c < 5; c++) {
+        const cell = board[r][c];
+        const div = document.createElement('div');
+        div.className = `board-cell type-${cell.type}`;
 
-    for (let row = 0; row < ROWS; row++) {
-      for (let col = 0; col < COLS; col++) {
-        const cell = document.createElement('div');
-        cell.className = 'cell';
-        cell.dataset.col = col;
+        if (cell.letter) {
+          // Tile has a letter → hoverable + show badge
+          div.classList.add('hoverable');
 
-        const val = board[row][col];
+          /* ── Multiplier badge ── */
+          if (cell.mult > 1) {
+            const badge = document.createElement('div');
+            badge.className = `mult-badge ${cell.mult >= 12 ? 'orange' : 'purple'}`;
+            badge.textContent = `${cell.mult}×`;
+            div.appendChild(badge);
+          }
 
-        if (val === 1) cell.classList.add('p1');
-        if (val === 2) cell.classList.add('p2');
-        if (winSet.has(`${row},${col}`)) cell.classList.add('winning');
-        if (gameOver) cell.classList.add('game-over');
+          /* ── Letter ── */
+          const lEl = document.createElement('div');
+          lEl.className = 'cell-letter';
+          lEl.textContent = cell.letter;
+          div.appendChild(lEl);
 
-        const emptyRow = lowestEmpty(col);
-        if (!gameOver && !animating && val === 0 && hoverCol === col && row === emptyRow) {
-          cell.classList.add(currentPlayer === 1 ? 'preview-p1' : 'preview-p2');
+          /* ── Point value ── */
+          const pEl = document.createElement('div');
+          pEl.className = 'cell-point';
+          pEl.textContent = PTS[cell.letter] ?? 0;
+          div.appendChild(pEl);
+
+          /* ── Word-score circle at end of word ── */
+          const key = `${r},${c}`;
+          if (circles[key]) {
+            const sc = document.createElement('div');
+            sc.className = 'word-score-badge';
+            sc.textContent = circles[key].toLocaleString();
+            div.appendChild(sc);
+          }
+
+          /* Click to return non-fixed letter to rack */
+          if (!cell.fixed) {
+            div.style.cursor = 'pointer';
+            div.addEventListener('click', () => returnLetter(r, c));
+          }
+
+        } else if (cell.type !== 'empty') {
+          /* Empty placeable cell */
+          if (cell.type === 'TL' || cell.type === 'DL') {
+            const lbl = document.createElement('div');
+            lbl.className = 'cell-type-label';
+            lbl.textContent = cell.type;
+            div.appendChild(lbl);
+          }
+
+          if (selectedId !== null) {
+            div.classList.add('placeable', 'hoverable');
+            div.addEventListener('click', () => placeLetter(r, c));
+          }
         }
 
-        const piece = document.createElement('div');
-        piece.className = 'piece';
-        cell.appendChild(piece);
-        if (!gameOver && !animating) cell.addEventListener('click', () => handleColumnClick(col));
-        boardEl.appendChild(cell);
+        boardEl.appendChild(div);
       }
-    }
-
-    // Status
-    const dot = document.getElementById('status-dot');
-    const text = document.getElementById('status-text');
-    if (winner) {
-      dot.style.background = winner === 1 ? 'var(--p1)' : 'var(--p2)';
-      text.textContent = `Player ${winner} wins!`;
-    } else if (isDraw) {
-      dot.style.background = 'var(--subtext)';
-      text.textContent = "It's a draw!";
-    } else {
-      dot.style.background = currentPlayer === 1 ? 'var(--p1)' : 'var(--p2)';
-      text.textContent = `Player ${currentPlayer}'s turn`;
     }
   }
 
-  // Hover tracking via event delegation
-  const boardWrap = document.getElementById('board-wrap');
-  boardWrap.addEventListener('mouseover', e => {
-    if (animating || gameOver) return;
-    const cell = e.target.closest('.cell');
-    if (!cell) return;
-    const col = parseInt(cell.dataset.col);
-    if (col !== hoverCol) { hoverCol = col; render(); }
-  });
-  boardWrap.addEventListener('mouseleave', () => {
-    if (hoverCol !== null) { hoverCol = null; render(); }
-  });
+  function renderRack() {
+    const rackEl = document.getElementById('rack');
+    rackEl.innerHTML = '';
 
-  document.getElementById('new-game').addEventListener('click', () => {
-    initGame();
+    rack.forEach(tile => {
+      if (tile.placed) return;
+
+      const div = document.createElement('div');
+      div.className = `rack-tile${tile.wild ? ' wildcard' : ''}${selectedId === tile.id ? ' selected' : ''}`;
+
+      const lEl = document.createElement('div');
+      lEl.className = 'tile-letter';
+      lEl.textContent = tile.letter;
+
+      const pEl = document.createElement('div');
+      pEl.className = 'tile-point';
+      pEl.textContent = PTS[tile.letter] ?? 0;
+
+      div.appendChild(lEl);
+      div.appendChild(pEl);
+      div.addEventListener('click', () => selectRack(tile.id));
+      rackEl.appendChild(div);
+    });
+  }
+
+  function renderWordList() {
+    const el = document.getElementById('word-list');
+    const words = findWords();
+    if (!words.length) {
+      el.innerHTML = '<p>Placed words will appear here…</p>';
+      return;
+    }
+    el.innerHTML = '';
+    words.forEach(w => {
+      const str = w.cells.map(c => c.letter).join('');
+      const sc = wordScore(w.cells);
+      const row = document.createElement('div');
+      row.className = 'word-entry';
+      row.innerHTML = `<span>${str}</span><span class="ws">+${sc.toLocaleString()}</span>`;
+      el.appendChild(row);
+    });
+  }
+
+  /* ── Interactions ─────────────────────────────── */
+  function selectRack(id) {
+    selectedId = (selectedId === id) ? null : id;
+    render();
+  }
+
+  function placeLetter(r, c) {
+    const tile = rack.find(t => t.id === selectedId);
+    if (!tile || board[r][c].letter || board[r][c].type === 'empty') return;
+    board[r][c].letter = tile.letter;
+    tile.placed = true;
+    selectedId = null;
+    render();
+  }
+
+  function returnLetter(r, c) {
+    const cell = board[r][c];
+    if (!cell.letter || cell.fixed) return;
+    const tile = rack.find(t => t.placed && t.letter === cell.letter);
+    if (tile) tile.placed = false;
+    cell.letter = null;
+    render();
+  }
+
+  /* ── Button handlers ─────────────────────────── */
+  document.getElementById('btn-trash').addEventListener('click', () => {
+    for (let r = 0; r < 5; r++) {
+      for (let c = 0; c < 5; c++) {
+        const cell = board[r][c];
+        if (cell.letter && !cell.fixed) {
+          const tile = rack.find(t => t.placed && t.letter === cell.letter);
+          if (tile) tile.placed = false;
+          cell.letter = null;
+        }
+      }
+    }
+    selectedId = null;
     render();
   });
 
-  initGame();
+  document.getElementById('btn-shuffle').addEventListener('click', () => {
+    // Fisher-Yates shuffle on unplaced rack tiles
+    const unplaced = rack.filter(t => !t.placed);
+    for (let i = unplaced.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [unplaced[i].letter, unplaced[j].letter] = [unplaced[j].letter, unplaced[i].letter];
+      [unplaced[i].wild,   unplaced[j].wild]   = [unplaced[j].wild,   unplaced[i].wild];
+    }
+    render();
+  });
+
+  document.getElementById('btn-submit').addEventListener('click', () => {
+    const words = findWords();
+    if (!words.length) { alert('No words on the board yet!'); return; }
+    const score = totalScore();
+    const list = words.map(w => w.cells.map(c => c.letter).join('')).join(', ');
+    alert(`Words submitted!\n${list}\n\nTotal score: ${score.toLocaleString()}`);
+  });
+
   render();
 </script>
 </body>
