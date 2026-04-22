@@ -232,6 +232,23 @@
     .cell.word-ok  { border-color: #4caf50 !important; background: #f0fdf4 !important; }
     .cell.word-bad { border-color: #e53935 !important; background: #fff5f5 !important; }
 
+    /* live-validation toast */
+    .board-wrap { display: flex; flex-direction: column; gap: 8px; }
+
+    .word-toast {
+      background: #1e1e1e;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 8px 14px;
+      border-radius: 10px;
+      text-align: center;
+      line-height: 1.4;
+      animation: toastIn .15s ease;
+    }
+    .word-toast.hidden { display: none; }
+    @keyframes toastIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
     /* ── Right panel ─────────────────────────────────────── */
     .right-panel {
       display: flex;
@@ -475,6 +492,7 @@
 <main>
   <div class="board-wrap">
     <div class="board" id="board"></div>
+    <div class="word-toast hidden" id="wordToast"></div>
   </div>
 
   <div class="right-panel">
@@ -704,6 +722,7 @@ function onCellClick(r, c) {
     if (selId === existing.id) selId = null;
     renderBoard();
     renderRack();
+    liveValidate();
     return;
   }
 
@@ -722,6 +741,7 @@ function onCellClick(r, c) {
   selId = null;
   renderBoard();
   renderRack();
+  liveValidate();
 }
 
 // ── Wild picker ────────────────────────────────────────
@@ -749,6 +769,7 @@ function pickWild(letter) {
   document.getElementById('wildOverlay').classList.add('hidden');
   renderBoard();
   renderRack();
+  liveValidate();
 }
 
 function cancelWild() {
@@ -764,6 +785,7 @@ function clearBoard() {
   selId = null;
   renderBoard();
   renderRack();
+  liveValidate();
 }
 
 function shuffleRack() {
@@ -859,6 +881,57 @@ function scoreWord({ r, c, dir, len }) {
     else if (sp === 'TW')                wm *= 3;
   }
   return letters * wm;
+}
+
+// ── Live word validation ────────────────────────────────
+let _lvGen = 0; // generation counter — discards stale async results
+
+async function liveValidate() {
+  const gen = ++_lvGen;
+  const words = findWords();
+
+  if (!words.length) {
+    document.querySelectorAll('.cell.word-ok, .cell.word-bad').forEach(el => {
+      el.classList.remove('word-ok', 'word-bad');
+    });
+    setWordToast(null);
+    return;
+  }
+
+  const results = await Promise.all(
+    words.map(async w => ({ ...w, valid: await isValid(w.word) }))
+  );
+
+  if (gen !== _lvGen) return; // board changed while we were waiting
+
+  // Build per-cell validity sets (bad takes priority over ok)
+  const cellBad = new Set(), cellOk = new Set();
+  results.forEach(({ r, c, dir, len, valid }) => {
+    for (let i = 0; i < len; i++) {
+      const row = dir === 'H' ? r     : r + i;
+      const col = dir === 'H' ? c + i : c;
+      const key = `${row},${col}`;
+      if (!valid) cellBad.add(key);
+      else if (!cellBad.has(key)) cellOk.add(key);
+    }
+  });
+
+  document.querySelectorAll('.cell').forEach(cell => {
+    cell.classList.remove('word-ok', 'word-bad');
+    if (!cell.classList.contains('has-tile')) return;
+    const key = `${cell.dataset.r},${cell.dataset.c}`;
+    if (cellBad.has(key))     cell.classList.add('word-bad');
+    else if (cellOk.has(key)) cell.classList.add('word-ok');
+  });
+
+  const bad = results.filter(x => !x.valid).map(x => `"${x.word.toUpperCase()}"`);
+  setWordToast(bad.length ? `Invalid word${bad.length > 1 ? 's' : ''}: ${bad.join(', ')} not found in dictionary` : null);
+}
+
+function setWordToast(msg) {
+  const el = document.getElementById('wordToast');
+  if (msg) { el.textContent = msg; el.classList.remove('hidden'); }
+  else       el.classList.add('hidden');
 }
 
 // ── Dictionary check ───────────────────────────────────
