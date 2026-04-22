@@ -137,7 +137,8 @@
       cursor: pointer;
       position: relative;
       user-select: none;
-      transition: opacity .15s;
+      transition: transform .15s, box-shadow .15s, opacity .15s;
+      overflow: visible;
     }
 
     .cell-label {
@@ -164,7 +165,50 @@
       border: 2px solid #d4b06a;
     }
 
-    .cell.has-tile:hover { opacity: .82; }
+    .cell.has-tile:hover {
+      transform: translateY(-4px) scale(1.07);
+      box-shadow: 0 10px 24px rgba(0,0,0,.25);
+      z-index: 20;
+    }
+
+    /* multiplier badge – top-left corner of a placed tile */
+    .mult-badge {
+      position: absolute;
+      top: -8px;
+      left: -8px;
+      font-size: 9px;
+      font-weight: 800;
+      line-height: 1;
+      padding: 2px 6px;
+      border-radius: 999px;
+      pointer-events: none;
+      box-shadow: 0 1px 4px rgba(0,0,0,.2);
+      white-space: nowrap;
+      z-index: 5;
+    }
+    .mult-badge.orange { background: #f97316; color: #fff; }
+    .mult-badge.purple { background: #8b5cf6; color: #fff; }
+
+    /* word-score circle – top-right of the last tile in a word */
+    .word-score-badge {
+      position: absolute;
+      top: -10px;
+      right: -10px;
+      min-width: 24px;
+      height: 24px;
+      padding: 0 5px;
+      background: #22c55e;
+      color: #fff;
+      font-size: 9px;
+      font-weight: 800;
+      border-radius: 999px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+      z-index: 6;
+      box-shadow: 0 1px 4px rgba(0,0,0,.2);
+    }
 
     .bt-letter {
       font-size: 28px;
@@ -560,6 +604,7 @@ const wordCache = {};
 function renderBoard() {
   const el = document.getElementById('board');
   el.innerHTML = '';
+  const scoreCircles = wordScoreCircleMap();
 
   for (let r = 0; r < 5; r++) {
     for (let c = 0; c < 5; c++) {
@@ -573,7 +618,27 @@ function renderBoard() {
       if (tile) {
         cell.classList.add('has-tile');
         const letter = tile.isWild ? (tile.wildLetter || '✱') : tile.letter;
-        cell.innerHTML = `<span class="bt-letter">${letter}</span><span class="bt-val">${tile.value}</span>`;
+
+        // multiplier badge
+        const dm = displayMult(sp);
+        if (dm) {
+          const badge = document.createElement('span');
+          badge.className = `mult-badge ${dm.val >= 3 ? 'orange' : 'purple'}`;
+          badge.textContent = dm.label;
+          cell.appendChild(badge);
+        }
+
+        cell.appendChild(Object.assign(document.createElement('span'), { className: 'bt-letter', textContent: letter }));
+        cell.appendChild(Object.assign(document.createElement('span'), { className: 'bt-val',    textContent: tile.value }));
+
+        // word-score circle at end of word
+        const key = `${r},${c}`;
+        if (scoreCircles[key] !== undefined) {
+          const sc = document.createElement('span');
+          sc.className = 'word-score-badge';
+          sc.textContent = scoreCircles[key].toLocaleString();
+          cell.appendChild(sc);
+        }
       } else {
         const cls = sp === 'ST' ? 'sq-ST' : (sp ? `sq-${sp}` : 'sq-empty');
         cell.classList.add(cls);
@@ -744,6 +809,36 @@ function findWords() {
   }
 
   return words;
+}
+
+// ── Multiplier for a special square (letter-level) ────
+function letterMult(sp) {
+  if (sp === 'DL') return 2;
+  if (sp === 'TL') return 3;
+  return 1;
+}
+
+// effective display multiplier: letter mult takes priority; word mult shown as-is
+function displayMult(sp) {
+  if (sp === 'TL') return { val: 3, label: '3×' };
+  if (sp === 'DL') return { val: 2, label: '2×' };
+  if (sp === 'TW') return { val: 3, label: '3×' };
+  if (sp === 'DW' || sp === 'ST') return { val: 2, label: '2×' };
+  return null;
+}
+
+// ── Word-score circle map ──────────────────────────────
+// Returns { 'r,c': score } for the LAST cell of each word currently on board
+function wordScoreCircleMap() {
+  const map = {};
+  findWords().forEach(w => {
+    const pts = scoreWord(w);
+    const lastR = w.dir === 'H' ? w.r           : w.r + w.len - 1;
+    const lastC = w.dir === 'H' ? w.c + w.len - 1 : w.c;
+    const key = `${lastR},${lastC}`;
+    map[key] = (map[key] || 0) + pts;
+  });
+  return map;
 }
 
 // ── Score a word ───────────────────────────────────────
