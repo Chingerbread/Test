@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Boba Boss — Bubble Tea Shop Tycoon</title>
+<style>
+  :root {
+    --bg: #fdf3e7;
+    --panel: #ffffff;
+    --ink: #4a3728;
+    --ink-soft: #8a7563;
+    --cream: #fff8ef;
+    --tea: #c68958;
+    --boba: #3d2b1f;
+    --pink: #f7a8b8;
+    --pink-deep: #ef6e8a;
+    --green: #7fc8a9;
+    --green-deep: #3d9970;
+    --gold: #f4b942;
+    --purple: #b497d6;
+    --shadow: 0 4px 18px rgba(74, 55, 40, 0.12);
+    --radius: 16px;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    background-image: radial-gradient(circle at 20% 10%, #ffe9d2 0%, transparent 45%),
+                      radial-gradient(circle at 85% 80%, #ffe0ec 0%, transparent 40%);
+    color: var(--ink);
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    min-height: 100vh;
+    padding: 18px;
+  }
+
+  .game {
+    max-width: 1100px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  /* ── Header ─────────────────────────────────── */
+  header {
+    background: var(--panel);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 14px 22px;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    flex-wrap: wrap;
+  }
+
+  .logo {
+    font-size: 1.45rem;
+    font-weight: 800;
+    letter-spacing: 0.01em;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .logo .sub { font-size: 0.72rem; font-weight: 600; color: var(--ink-soft); display: block; letter-spacing: 0.08em; text-transform: uppercase; }
+
+  .stat-strip {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-left: auto;
+  }
+
+  .stat {
+    background: var(--cream);
+    border: 1px solid #f0e2cf;
+    border-radius: 12px;
+    padding: 6px 14px;
+    text-align: center;
+    min-width: 96px;
+  }
+  .stat .label { font-size: 0.62rem; font-weight: 700; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.07em; }
+  .stat .value { font-size: 1.05rem; font-weight: 800; }
+  .stat .value.money { color: var(--green-deep); }
+  .stat .value.stars { color: var(--gold); }
+
+  /* ── Main layout ────────────────────────────── */
+  .main {
+    display: grid;
+    grid-template-columns: 1.15fr 1fr;
+    gap: 16px;
+    align-items: start;
+  }
+  @media (max-width: 860px) { .main { grid-template-columns: 1fr; } }
+
+  .panel {
+    background: var(--panel);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 18px;
+  }
+
+  .panel h2 {
+    font-size: 0.85rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--ink-soft);
+    margin-bottom: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+  .panel h2 .hint { font-size: 0.7rem; font-weight: 600; text-transform: none; letter-spacing: 0; }
+
+  /* ── Shop floor ─────────────────────────────── */
+  .shopfront {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .queue-area {
+    background: linear-gradient(180deg, #fff3e3 0%, #ffe9d2 100%);
+    border: 1px solid #f3ddc0;
+    border-radius: 12px;
+    padding: 12px;
+    min-height: 86px;
+  }
+
+  .queue-row {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    min-height: 48px;
+  }
+
+  .customer {
+    font-size: 1.9rem;
+    line-height: 1;
+    animation: walk-in 0.35s ease-out;
+    position: relative;
+    cursor: default;
+  }
+  .customer .want {
+    position: absolute;
+    top: -14px;
+    right: -8px;
+    font-size: 0.85rem;
+    background: white;
+    border-radius: 999px;
+    padding: 1px 3px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.18);
+  }
+  @keyframes walk-in {
+    from { transform: translateX(24px); opacity: 0; }
+    to   { transform: translateX(0);    opacity: 1; }
+  }
+
+  .queue-meta {
+    margin-top: 8px;
+    font-size: 0.74rem;
+    color: var(--ink-soft);
+    font-weight: 600;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  /* ── The big serve button ───────────────────── */
+  .serve-zone {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+  }
+
+  .cup-btn {
+    width: 132px;
+    height: 158px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    position: relative;
+    flex-shrink: 0;
+    transition: transform 0.08s ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .cup-btn:active { transform: scale(0.93); }
+  .cup-btn:focus-visible { outline: 3px dashed var(--pink-deep); outline-offset: 6px; border-radius: 18px; }
+
+  .cup {
+    width: 100px;
+    height: 132px;
+    margin: 0 auto;
+    background: linear-gradient(180deg, rgba(255,255,255,0.55) 0%, var(--cup-color, var(--tea)) 38%);
+    border: 3px solid #4a3728;
+    border-radius: 10px 10px 26px 26px;
+    position: relative;
+    overflow: hidden;
+    transition: --cup-color 0.3s;
+  }
+  .cup::before { /* lid line */
+    content: '';
+    position: absolute;
+    top: 14px; left: -3px; right: -3px;
+    height: 3px;
+    background: #4a3728;
+  }
+  .cup .straw {
+    position: absolute;
+    top: -18px;
+    left: 50%;
+    width: 13px;
+    height: 52px;
+    background: var(--pink-deep);
+    border: 2.5px solid #4a3728;
+    border-radius: 4px;
+    transform: translateX(-50%) rotate(8deg);
+  }
+  .cup .pearls {
+    position: absolute;
+    bottom: 6px; left: 0; right: 0;
+    display: flex;
+    justify-content: center;
+    gap: 4px;
+    flex-wrap: wrap;
+    padding: 0 8px;
+  }
+  .cup .pearls i {
+    width: 13px; height: 13px;
+    background: var(--boba);
+    border-radius: 50%;
+    display: block;
+  }
+  .cup-label {
+    margin-top: 4px;
+    font-size: 0.72rem;
+    font-weight: 800;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .serve-info { flex: 1; }
+  .serve-info .now-serving {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--ink-soft);
+  }
+  .serve-info .drink-name {
+    font-size: 1.25rem;
+    font-weight: 800;
+    margin: 2px 0 6px;
+  }
+  .serve-info .earn { font-size: 0.85rem; font-weight: 700; color: var(--green-deep); }
+  .serve-info .tip-note { font-size: 0.74rem; color: var(--ink-soft); margin-top: 8px; line-height: 1.5; }
+
+  /* Floating +$ numbers */
+  .float-layer {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+    z-index: 50;
+  }
+  .float-money {
+    position: absolute;
+    font-weight: 800;
+    font-size: 1rem;
+    color: var(--green-deep);
+    text-shadow: 0 1px 0 white;
+    animation: float-up 0.9s ease-out forwards;
+  }
+  @keyframes float-up {
+    from { transform: translateY(0);     opacity: 1; }
+    to   { transform: translateY(-56px); opacity: 0; }
+  }
+
+  /* ── Menu (drinks) ──────────────────────────── */
+  .menu-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 10px;
+  }
+
+  .drink-card {
+    border: 2px solid #f0e2cf;
+    border-radius: 12px;
+    padding: 10px 12px;
+    background: var(--cream);
+    position: relative;
+  }
+  .drink-card.locked { opacity: 0.92; background: #f6f1ea; border-style: dashed; }
+  .drink-card .d-emoji { font-size: 1.5rem; }
+  .drink-card .d-name { font-weight: 800; font-size: 0.86rem; margin: 3px 0 1px; }
+  .drink-card .d-price { font-size: 0.76rem; font-weight: 700; color: var(--green-deep); }
+  .drink-card .d-pop { font-size: 0.68rem; color: var(--ink-soft); font-weight: 600; }
+
+  .unlock-btn {
+    margin-top: 7px;
+    width: 100%;
+    border: none;
+    border-radius: 8px;
+    padding: 6px 8px;
+    font-weight: 800;
+    font-size: 0.74rem;
+    cursor: pointer;
+    background: var(--pink);
+    color: #6e2438;
+    transition: filter 0.1s, transform 0.08s;
+  }
+  .unlock-btn:hover:not(:disabled) { filter: brightness(1.06); }
+  .unlock-btn:active:not(:disabled) { transform: scale(0.96); }
+  .unlock-btn:disabled { background: #e7ddd2; color: #a99a8a; cursor: not-allowed; }
+
+  /* ── Upgrades ───────────────────────────────── */
+  .upgrade-list { display: flex; flex-direction: column; gap: 9px; }
+
+  .upgrade {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border: 2px solid #f0e2cf;
+    border-radius: 12px;
+    padding: 10px 12px;
+    background: var(--cream);
+  }
+  .upgrade .u-emoji { font-size: 1.6rem; width: 36px; text-align: center; flex-shrink: 0; }
+  .upgrade .u-body { flex: 1; min-width: 0; }
+  .upgrade .u-name { font-weight: 800; font-size: 0.88rem; }
+  .upgrade .u-name .lvl {
+    font-size: 0.66rem;
+    font-weight: 800;
+    background: var(--purple);
+    color: white;
+    border-radius: 999px;
+    padding: 1px 7px;
+    margin-left: 6px;
+    vertical-align: 2px;
+  }
+  .upgrade .u-desc { font-size: 0.72rem; color: var(--ink-soft); font-weight: 600; margin-top: 1px; }
+
+  .buy-btn {
+    border: none;
+    border-radius: 10px;
+    padding: 9px 14px;
+    font-weight: 800;
+    font-size: 0.78rem;
+    cursor: pointer;
+    background: var(--green);
+    color: #14503a;
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: filter 0.1s, transform 0.08s;
+  }
+  .buy-btn:hover:not(:disabled) { filter: brightness(1.06); }
+  .buy-btn:active:not(:disabled) { transform: scale(0.95); }
+  .buy-btn:disabled { background: #e7ddd2; color: #a99a8a; cursor: not-allowed; }
+  .buy-btn.maxed { background: var(--gold); color: #6b4d0c; }
+
+  /* ── Log / toast ────────────────────────────── */
+  .toast {
+    position: fixed;
+    bottom: 22px;
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: var(--ink);
+    color: #fff6ea;
+    font-weight: 700;
+    font-size: 0.85rem;
+    padding: 11px 20px;
+    border-radius: 999px;
+    box-shadow: 0 6px 24px rgba(0,0,0,0.25);
+    transition: transform 0.25s ease;
+    z-index: 60;
+    max-width: 90vw;
+    text-align: center;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+
+  footer {
+    text-align: center;
+    font-size: 0.72rem;
+    color: var(--ink-soft);
+    font-weight: 600;
+    padding-bottom: 8px;
+  }
+  footer button {
+    border: none;
+    background: none;
+    color: var(--ink-soft);
+    font-weight: 700;
+    font-size: 0.72rem;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+<div class="game">
+
+  <header>
+    <div class="logo">
+      🧋 Boba Boss
+      <span class="sub">Bubble Tea Tycoon</span>
+    </div>
+    <div class="stat-strip">
+      <div class="stat"><div class="label">Cash</div><div class="value money" id="stat-money">$0</div></div>
+      <div class="stat"><div class="label">Served</div><div class="value" id="stat-served">0</div></div>
+      <div class="stat"><div class="label">Per Click</div><div class="value" id="stat-click">1 cup</div></div>
+      <div class="stat"><div class="label">Auto / sec</div><div class="value" id="stat-auto">0</div></div>
+      <div class="stat"><div class="label">Reputation</div><div class="value stars" id="stat-rep">☆☆☆☆☆</div></div>
+    </div>
+  </header>
+
+  <div class="main">
+    <!-- LEFT: shop floor -->
+    <div class="panel shopfront">
+      <div>
+        <h2>Customer Queue <span class="hint" id="queue-cap-label"></span></h2>
+        <div class="queue-area">
+          <div class="queue-row" id="queue"></div>
+          <div class="queue-meta">
+            <span id="queue-count">0 waiting</span>
+            <span id="arrival-rate"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="serve-zone">
+        <button class="cup-btn" id="serve-btn" title="Shake & serve!">
+          <div class="cup" id="cup">
+            <div class="straw"></div>
+            <div class="pearls">
+              <i></i><i></i><i></i><i></i><i></i><i></i>
+            </div>
+          </div>
+          <div class="cup-label">Shake &amp; Serve!</div>
+        </button>
+        <div class="serve-info">
+          <div class="now-serving">Now Serving</div>
+          <div class="drink-name" id="serving-name">—</div>
+          <div class="earn" id="serving-earn"></div>
+          <div class="tip-note">
+            Click the cup to serve the next customer in line.
+            Hire baristas to keep cups flowing while you manage the empire.
+            Customers who wait too long walk out — and your reputation takes the hit!
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <h2>Drink Menu <span class="hint">fancier drinks = bigger sales &amp; more buzz</span></h2>
+        <div class="menu-grid" id="menu"></div>
+      </div>
+    </div>
+
+    <!-- RIGHT: upgrades -->
+    <div class="panel">
+      <h2>Shop Upgrades</h2>
+      <div class="upgrade-list" id="upgrades"></div>
+    </div>
+  </div>
+
+  <footer>
+    Progress autosaves in your browser · <button id="reset-btn">start a new franchise (reset)</button>
+  </footer>
+</div>
+
+<div class="float-layer" id="float-layer"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+
+/* ════════════════ Data definitions ════════════════ */
+
+const DRINKS = [
+  { id:'classic', name:'Classic Milk Tea',    emoji:'🧋', price:4,   buzz:1.0, cost:0,      color:'#c68958' },
+  { id:'taro',    name:'Taro Milk Tea',       emoji:'💜', price:6,   buzz:1.2, cost:60,     color:'#b497d6' },
+  { id:'matcha',  name:'Matcha Latte',        emoji:'🍵', price:9,   buzz:1.4, cost:300,    color:'#8fbf6f' },
+  { id:'brown',   name:'Brown Sugar Boba',    emoji:'🟤', price:13,  buzz:1.7, cost:1200,   color:'#8a5a2b' },
+  { id:'fruit',   name:'Passionfruit Green',  emoji:'🍑', price:18,  buzz:2.0, cost:5000,   color:'#f7b267' },
+  { id:'cheese',  name:'Cheese Foam Oolong',  emoji:'🧀', price:26,  buzz:2.5, cost:20000,  color:'#f4d58d' },
+  { id:'galaxy',  name:'Galaxy Butterfly Pea',emoji:'🌌', price:40,  buzz:3.2, cost:80000,  color:'#5e60ce' },
+  { id:'gold24',  name:'24k Gold Leaf Royale',emoji:'👑', price:75,  buzz:4.5, cost:350000, color:'#f4b942' },
+];
+
+const UPGRADES = [
+  {
+    id:'barista', emoji:'🧑‍🍳', name:'Baristas', max:25,
+    desc: lvl => lvl === 0 ? 'Hire staff to auto-serve customers.'
+                           : `Auto-serves ${lvl} customer${lvl>1?'s':''}/sec.`,
+    cost: lvl => Math.round(50 * Math.pow(1.55, lvl)),
+  },
+  {
+    id:'shaker', emoji:'🫨', name:'Shaker Machines', max:20,
+    desc: lvl => `Each click serves ${1 + lvl} customer${lvl>0?'s':''}.`,
+    cost: lvl => Math.round(80 * Math.pow(1.7, lvl)),
+  },
+  {
+    id:'marketing', emoji:'📣', name:'Marketing', max:25,
+    desc: lvl => `Customers arrive ${(arrivalRate(lvl)).toFixed(1)}×/sec.`,
+    cost: lvl => Math.round(40 * Math.pow(1.6, lvl)),
+  },
+  {
+    id:'seating', emoji:'🪑', name:'Seating & Line Space', max:15,
+    desc: lvl => `Queue holds ${queueCap(lvl)} customers.`,
+    cost: lvl => Math.round(60 * Math.pow(1.8, lvl)),
+  },
+  {
+    id:'toppings', emoji:'🍮', name:'Premium Toppings', max:20,
+    desc: lvl => `All drinks sell for ${(priceMult(lvl)).toFixed(2)}× price.`,
+    cost: lvl => Math.round(120 * Math.pow(1.75, lvl)),
+  },
+  {
+    id:'decor', emoji:'🏮', name:'Cozy Decor', max:10,
+    desc: lvl => `Customers wait ${(patience(lvl)).toFixed(0)}s before leaving.`,
+    cost: lvl => Math.round(200 * Math.pow(2.1, lvl)),
+  },
+];
+
+const CUSTOMER_EMOJI = ['🧑','👩','👨','👧','👦','👵','👴','🧔','👱‍♀️','🧕','👩‍🦰','👨‍🦱','🧑‍🎤','👩‍💼','🕺'];
+
+/* ════════════════ Game state ════════════════ */
+
+const SAVE_KEY = 'boba-boss-save-v1';
+
+let S = defaultState();
+
+function defaultState() {
+  return {
+    money: 0,
+    served: 0,
+    walkouts: 0,
+    unlocked: { classic: true },
+    levels: { barista:0, shaker:0, marketing:0, seating:0, toppings:0, decor:0 },
+    queue: [],          // [{emoji, drinkId, arrivedAt}]
+    lastTick: Date.now(),
+  };
+}
+
+/* ── Derived values ── */
+function arrivalRate(lvl)  { return 0.45 + lvl * 0.22; }       // customers per second
+function queueCap(lvl)     { return 6 + lvl * 3; }
+function priceMult(lvl)    { return 1 + lvl * 0.25; }
+function patience(lvl)     { return 14 + lvl * 4; }            // seconds before walkout
+function autoRate()        { return S.levels.barista; }        // serves per second
+function clickPower()      { return 1 + S.levels.shaker; }
+
+function reputation() {
+  const total = S.served + S.walkouts;
+  if (total < 10) return 3;
+  const ratio = S.served / total;
+  if (ratio > 0.97) return 5;
+  if (ratio > 0.90) return 4;
+  if (ratio > 0.78) return 3;
+  if (ratio > 0.60) return 2;
+  return 1;
+}
+
+function unlockedDrinks() { return DRINKS.filter(d => S.unlocked[d.id]); }
+
+/* Weighted pick: pricier unlocked drinks get ordered more thanks to buzz */
+function pickDrink() {
+  const pool = unlockedDrinks();
+  const weights = pool.map(d => d.buzz);
+  let r = Math.random() * weights.reduce((a,b) => a+b, 0);
+  for (let i = 0; i < pool.length; i++) {
+    r -= weights[i];
+    if (r <= 0) return pool[i];
+  }
+  return pool[pool.length - 1];
+}
+
+function drinkById(id) { return DRINKS.find(d => d.id === id) || DRINKS[0]; }
+
+function sellPrice(drink) {
+  // reputation nudges every sale: 5★ = +20%, 1★ = -20%
+  const repBoost = 0.9 + reputation() * 0.06;
+  return drink.price * priceMult(S.levels.toppings) * repBoost;
+}
+
+/* ════════════════ Core loop ════════════════ */
+
+let arrivalCarry = 0;
+let autoCarry = 0;
+
+function tick(dt) {
+  // 1. customers arrive
+  const cap = queueCap(S.levels.seating);
+  arrivalCarry += arrivalRate(S.levels.marketing) * dt;
+  while (arrivalCarry >= 1) {
+    arrivalCarry -= 1;
+    if (S.queue.length < cap) {
+      S.queue.push({
+        emoji: CUSTOMER_EMOJI[Math.floor(Math.random() * CUSTOMER_EMOJI.length)],
+        drinkId: pickDrink().id,
+        arrivedAt: Date.now(),
+      });
+    }
+  }
+
+  // 2. baristas auto-serve
+  autoCarry += autoRate() * dt;
+  while (autoCarry >= 1 && S.queue.length) {
+    autoCarry -= 1;
+    serveOne(false);
+  }
+  if (!S.queue.length) autoCarry = Math.min(autoCarry, 1);
+
+  // 3. impatient customers walk out
+  const limit = patience(S.levels.decor) * 1000;
+  const now = Date.now();
+  const before = S.queue.length;
+  S.queue = S.queue.filter(c => now - c.arrivedAt < limit);
+  S.walkouts += before - S.queue.length;
+}
+
+function serveOne(showFloat, x, y) {
+  const cust = S.queue.shift();
+  if (!cust) return false;
+  const drink = drinkById(cust.drinkId);
+  const earned = sellPrice(drink);
+  S.money += earned;
+  S.served += 1;
+  if (showFloat) spawnFloat(`+$${earned.toFixed(2)}`, x, y);
+  return true;
+}
+
+function onServeClick(ev) {
+  const n = clickPower();
+  let servedAny = false;
+  for (let i = 0; i < n; i++) {
+    if (!serveOne(i === 0, ev.clientX, ev.clientY)) break;
+    servedAny = true;
+  }
+  if (!servedAny) {
+    toast('No customers in line — crank up the marketing! 📣');
+  }
+  render();
+}
+
+/* ════════════════ Purchases ════════════════ */
+
+function buyUpgrade(id) {
+  const u = UPGRADES.find(u => u.id === id);
+  const lvl = S.levels[id];
+  if (lvl >= u.max) return;
+  const cost = u.cost(lvl);
+  if (S.money < cost) return;
+  S.money -= cost;
+  S.levels[id] = lvl + 1;
+  toast(`${u.emoji} ${u.name} upgraded to level ${lvl + 1}!`);
+  render();
+}
+
+function unlockDrink(id) {
+  const d = drinkById(id);
+  if (S.unlocked[id] || S.money < d.cost) return;
+  S.money -= d.cost;
+  S.unlocked[id] = true;
+  toast(`${d.emoji} ${d.name} added to the menu!`);
+  render();
+}
+
+/* ════════════════ Rendering ════════════════ */
+
+const $ = id => document.getElementById(id);
+const fmtMoney = n => n >= 1e6 ? `$${(n/1e6).toFixed(2)}M`
+                   : n >= 1e4 ? `$${(n/1e3).toFixed(1)}k`
+                   : `$${n.toFixed(2)}`;
+
+function render() {
+  // header stats
+  $('stat-money').textContent = fmtMoney(S.money);
+  $('stat-served').textContent = S.served.toLocaleString();
+  $('stat-click').textContent = `${clickPower()} cup${clickPower()>1?'s':''}`;
+  $('stat-auto').textContent = autoRate();
+  const rep = reputation();
+  $('stat-rep').textContent = '★'.repeat(rep) + '☆'.repeat(5 - rep);
+
+  renderQueue();
+  renderServing();
+  renderMenu();
+  renderUpgrades();
+}
+
+function renderQueue() {
+  const cap = queueCap(S.levels.seating);
+  const q = $('queue');
+  q.innerHTML = '';
+  S.queue.slice(0, 40).forEach(c => {
+    const d = drinkById(c.drinkId);
+    const el = document.createElement('div');
+    el.className = 'customer';
+    el.title = `Wants: ${d.name}`;
+    el.innerHTML = `${c.emoji}<span class="want">${d.emoji}</span>`;
+    q.appendChild(el);
+  });
+  $('queue-count').textContent = `${S.queue.length} waiting`;
+  $('queue-cap-label').textContent = `capacity ${cap}`;
+  $('arrival-rate').textContent =
+    `☕ ${arrivalRate(S.levels.marketing).toFixed(1)}/sec · 😤 leave after ${patience(S.levels.decor).toFixed(0)}s`;
+}
+
+function renderServing() {
+  const next = S.queue[0];
+  if (next) {
+    const d = drinkById(next.drinkId);
+    $('serving-name').textContent = `${d.emoji} ${d.name}`;
+    $('serving-earn').textContent = `Sells for ${fmtMoney(sellPrice(d))}`;
+    $('cup').style.setProperty('--cup-color', d.color);
+  } else {
+    $('serving-name').textContent = '— empty line —';
+    $('serving-earn').textContent = '';
+    $('cup').style.setProperty('--cup-color', 'var(--tea)');
+  }
+}
+
+function renderMenu() {
+  const menu = $('menu');
+  menu.innerHTML = '';
+  DRINKS.forEach(d => {
+    const owned = !!S.unlocked[d.id];
+    const card = document.createElement('div');
+    card.className = `drink-card${owned ? '' : ' locked'}`;
+    card.innerHTML = `
+      <div class="d-emoji">${owned ? d.emoji : '🔒'}</div>
+      <div class="d-name">${d.name}</div>
+      <div class="d-price">${fmtMoney(sellPrice(d))} per cup</div>
+      <div class="d-pop">buzz ×${d.buzz.toFixed(1)}</div>
+    `;
+    if (!owned) {
+      const btn = document.createElement('button');
+      btn.className = 'unlock-btn';
+      btn.textContent = `Unlock — ${fmtMoney(d.cost)}`;
+      btn.disabled = S.money < d.cost;
+      btn.addEventListener('click', () => unlockDrink(d.id));
+      card.appendChild(btn);
+    }
+    menu.appendChild(card);
+  });
+}
+
+function renderUpgrades() {
+  const list = $('upgrades');
+  list.innerHTML = '';
+  UPGRADES.forEach(u => {
+    const lvl = S.levels[u.id];
+    const maxed = lvl >= u.max;
+    const cost = maxed ? 0 : u.cost(lvl);
+
+    const row = document.createElement('div');
+    row.className = 'upgrade';
+    row.innerHTML = `
+      <div class="u-emoji">${u.emoji}</div>
+      <div class="u-body">
+        <div class="u-name">${u.name}<span class="lvl">Lv ${lvl}</span></div>
+        <div class="u-desc">${u.desc(lvl)}</div>
+      </div>
+    `;
+    const btn = document.createElement('button');
+    btn.className = `buy-btn${maxed ? ' maxed' : ''}`;
+    if (maxed) {
+      btn.textContent = 'MAX';
+      btn.disabled = true;
+    } else {
+      btn.textContent = fmtMoney(cost);
+      btn.disabled = S.money < cost;
+      btn.addEventListener('click', () => buyUpgrade(u.id));
+    }
+    row.appendChild(btn);
+    list.appendChild(row);
+  });
+}
+
+/* ── Effects ── */
+function spawnFloat(text, x, y) {
+  const el = document.createElement('div');
+  el.className = 'float-money';
+  el.textContent = text;
+  el.style.left = `${(x ?? innerWidth / 2) + (Math.random() * 40 - 20)}px`;
+  el.style.top  = `${(y ?? innerHeight / 2) - 20}px`;
+  $('float-layer').appendChild(el);
+  setTimeout(() => el.remove(), 950);
+}
+
+let toastTimer = null;
+function toast(msg) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+/* ════════════════ Save / load ════════════════ */
+
+function save() {
+  S.lastTick = Date.now();
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) { /* private mode */ }
+}
+
+function load() {
+  let raw = null;
+  try { raw = localStorage.getItem(SAVE_KEY); } catch (e) { /* private mode */ }
+  if (!raw) return;
+  try {
+    const data = JSON.parse(raw);
+    S = { ...defaultState(), ...data };
+    S.levels = { ...defaultState().levels, ...(data.levels || {}) };
+    S.unlocked = { classic: true, ...(data.unlocked || {}) };
+    S.queue = Array.isArray(data.queue) ? data.queue : [];
+
+    // Offline earnings: baristas kept working (capped at 4h, assumes full line)
+    const away = Math.min((Date.now() - (data.lastTick || Date.now())) / 1000, 4 * 3600);
+    if (away > 30 && autoRate() > 0) {
+      const servedAway = Math.floor(Math.min(autoRate(), arrivalRate(S.levels.marketing)) * away);
+      if (servedAway > 0) {
+        const avg = unlockedDrinks().reduce((s, d) => s + sellPrice(d), 0) / unlockedDrinks().length;
+        const earned = servedAway * avg;
+        S.money += earned;
+        S.served += servedAway;
+        setTimeout(() => toast(`☕ While you were away, your baristas served ${servedAway.toLocaleString()} cups for ${fmtMoney(earned)}!`), 400);
+      }
+    }
+  } catch (e) {
+    console.warn('Bad save, starting fresh', e);
+  }
+}
+
+function hardReset() {
+  if (!confirm('Tear it all down and start a brand-new franchise? Your progress will be erased.')) return;
+  try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
+  S = defaultState();
+  arrivalCarry = 0;
+  autoCarry = 0;
+  toast('🏗️ Fresh start — welcome back, boss!');
+  render();
+}
+
+/* ════════════════ Boot ════════════════ */
+
+$('serve-btn').addEventListener('click', onServeClick);
+$('reset-btn').addEventListener('click', hardReset);
+
+// Spacebar also serves
+document.addEventListener('keydown', ev => {
+  if (ev.code === 'Space' && ev.target === document.body) {
+    ev.preventDefault();
+    onServeClick({ clientX: innerWidth / 2, clientY: innerHeight / 2 });
+  }
+});
+
+load();
+
+let last = Date.now();
+setInterval(() => {
+  const now = Date.now();
+  const dt = Math.min((now - last) / 1000, 2);
+  last = now;
+  tick(dt);
+  render();
+}, 250);
+
+setInterval(save, 5000);
+window.addEventListener('beforeunload', save);
+
+render();
+toast('🧋 Welcome to Boba Boss! Click the cup to serve your first customer.');
+</script>
+</body>
+</html>
