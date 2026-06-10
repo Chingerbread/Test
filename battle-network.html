@@ -134,6 +134,7 @@ let lastRank = '';
 function resetGame(){
   round = 0;
   zenny = 0;
+  battleTime = 0;
   player = { col:1, row:1, hp:200, maxHp:200, iframes:0 };
   fullSynchro = false;
   chargeT = 0; moveCD = 0;
@@ -1187,6 +1188,8 @@ function loop(ts){
   pressed = {};
   requestAnimationFrame(loop);
 }
+resetGame();          // initialize state before the first frame — the title
+                      // screen draws MegaMan and reads player/charge state
 canvas.focus();
 requestAnimationFrame(loop);
 </script>
